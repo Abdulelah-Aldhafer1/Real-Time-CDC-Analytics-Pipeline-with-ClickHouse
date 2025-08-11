@@ -25,7 +25,6 @@ PostgreSQL → Debezium → Kafka → Flink → Redis + ClickHouse (+ optional e
 1) Clone and enter the project
 ```bash
 git clone <repository-url>
-cd "CDC-POC"
 ```
 2) Start everything
 ```bash
