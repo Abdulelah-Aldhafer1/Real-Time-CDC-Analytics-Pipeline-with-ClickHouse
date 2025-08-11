@@ -39,13 +39,13 @@ git clone <repository-url>
 
 ## Architecture discussion (expanded)
 
-### Debezium + Kafka (why)
+### Debezium + Kafka 
 Debezium tails PostgreSQL’s WAL to emit change events without app code or triggers. It preserves per‑key ordering and captures inserts/updates/deletes with before/after images. Kafka adds durable retention for replay/backfill, offset control, and clean decoupling so you can scale ingestion and consumers independently.
 
-### Schema Registry (why)
+### Schema Registry 
 A central contract for message formats and compatibility rules. Using Avro/JSON‑Schema/Protobuf with Schema Registry prevents breaking changes, enables safe evolution, and improves tooling (validation, codegen, diffs). It reduces integration risk across multiple consumers.
 
-### Flink (why)
+### Flink 
 Flink provides low‑latency, stateful streaming with checkpointed, exactly‑once state. Broadcast state lets us keep `content` in memory and join it with high‑volume `engagement` events efficiently, then fan‑out to multiple sinks. Compared to bespoke consumers, you get stronger guarantees, simpler scaling, and good observability.
 
 ### Why ClickHouse for OLAP
