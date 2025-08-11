@@ -1,6 +1,6 @@
 # Real-Time CDC Analytics Pipeline with ClickHouse
 
-A production-ready Change Data Capture (CDC) pipeline that captures PostgreSQL database changes in real-time, enriches them with Apache Flink using broadcast state patterns, and stores results in both Redis for real-time access and ClickHouse for analytical workloads.
+A production-ready Change Data Capture (CDC) pipeline that captures PostgreSQL database changes in real-time, enriches them with Apache Flink , and stores results in both Redis for real-time access and ClickHouse for analytical workloads.
 
 ## Architecture
 
