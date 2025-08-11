@@ -66,11 +66,11 @@ Columnar, vectorized execution with great compression makes scans and aggregatio
 - Commercial OLAP/lakehouse: Snowflake, Databricks
   - End‑to‑end platform capabilities (governance, sharing, streaming/ML integrations), elastic scale, rich ecosystems, and mature ops tooling.
 
-- Not recommending BigQuery for this setup
-  - For tight real‑time enrichment loops, egress/latency patterns and operational constraints are less ideal than engines tuned for low‑latency CDC ingestion.
+- Not BigQuery 
+  -  More costly with fewer specialized features compared to Snowflake/Databricks for analytical workloads.
 
 - CDC platform and infra
-  - If standardizing on Kafka/Flink for real‑time, Confluent (managed Kafka, Schema Registry, Connect) simplifies ops, adds governance and exactly‑once features, and reduces toil at scale.
+  - If standardizing on Kafka/Flink for real‑time, Use Confluent (managed Kafka, Schema Registry, Connect) simplifies ops, adds governance and exactly‑once features, and reduces toil at scale.
 
 ## Notes
 - Exactly‑once: Flink uses checkpoints for source/state; Redis/ClickHouse are at‑least‑once. We mitigate duplicates with ClickHouse ReplacingMergeTree and can add idempotent Redis writes or EOS Kafka outbox if required.
