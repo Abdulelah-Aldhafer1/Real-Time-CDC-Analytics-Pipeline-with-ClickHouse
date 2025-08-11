@@ -1,0 +1,8 @@
+com/cdc/streaming/EnhancedEngagementStreamingJob.class
+com/cdc/streaming/EnhancedEngagementStreamingJob$DebeziumMessageParser.class
+com/cdc/streaming/EnhancedEngagementStreamingJob$RedisSink.class
+com/cdc/streaming/EngagementEvent.class
+com/cdc/streaming/EnhancedEngagementStreamingJob$ContentInfo.class
+com/cdc/streaming/EnhancedEngagementStreamingJob$ContentMessageParser.class
+com/cdc/streaming/EnhancedEngagementStreamingJob$BroadcastContentEnricher.class
+com/cdc/streaming/EnhancedEngagementStreamingJob$ClickHouseSink.class

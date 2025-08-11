@@ -1,0 +1,43 @@
+kafka:
+  clusters:
+    - name: cdc-kafka-cluster
+      bootstrapServers: kafka:29092
+      readOnly: false
+      schemaRegistry: http://schema-registry:8081
+      kafkaConnect:
+        - name: debezium-connect
+          address: http://connect:8083
+      metrics:
+        port: 9999
+        type: JMX
+      auth:
+        type: PLAIN
+      properties:
+        request.timeout.ms: 30000
+        session.timeout.ms: 30000
+        heartbeat.interval.ms: 3000
+        max.poll.interval.ms: 300000
+        auto.offset.reset: earliest
+        enable.auto.commit: false
+        key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+        key.serializer: org.apache.kafka.common.serialization.StringSerializer
+        value.serializer: org.apache.kafka.common.serialization.StringSerializer
+
+auth:
+  type: DISABLED
+
+server:
+  port: 8080
+  compression:
+    enabled: true
+  cors:
+    allowedOrigins: "*"
+    allowedMethods: "*"
+    allowedHeaders: "*"
+
+spring:
+  application:
+    name: kafka-ui
+  jmx:
+    enabled: false 

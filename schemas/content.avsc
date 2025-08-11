@@ -1,0 +1,37 @@
+{
+  "type": "record",
+  "name": "Content",
+  "namespace": "com.cdc.events",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string",
+      "doc": "UUID of the content"
+    },
+    {
+      "name": "slug",
+      "type": "string",
+      "doc": "URL-friendly identifier for the content"
+    },
+    {
+      "name": "title",
+      "type": "string",
+      "doc": "Title of the content"
+    },
+    {
+      "name": "content_type",
+      "type": "string",
+      "doc": "Type of content: podcast, newsletter, video"
+    },
+    {
+      "name": "length_seconds",
+      "type": ["null", "int"],
+      "doc": "Length of the content in seconds"
+    },
+    {
+      "name": "publish_ts",
+      "type": "string",
+      "doc": "Timestamp when the content was published (ISO 8601 format)"
+    }
+  ]
+} 

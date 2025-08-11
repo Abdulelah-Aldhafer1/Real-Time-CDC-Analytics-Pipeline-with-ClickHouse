@@ -1,0 +1,234 @@
+
+services:
+  postgres:
+    image: postgres:14
+    container_name: cdc_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-engagement_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    command: postgres -c wal_level=logical -c max_replication_slots=2 -c max_wal_senders=2 -c shared_buffers=128MB -c max_connections=50
+    networks:
+      - cdc_network
+
+  # (KRaft mode - no Zookeeper needed)
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: cdc_kafka
+    user: "0:0"
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 4
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka_data:/tmp/kraft-combined-logs
+    networks:
+      - cdc_network
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    container_name: cdc_schema_registry
+    depends_on:
+      - kafka
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks:
+      - cdc_network
+
+  connect:
+    image: debezium/connect:2.4
+    container_name: cdc_connect
+    depends_on:
+      - kafka
+      - postgres
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+    networks:
+      - cdc_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: cdc_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - cdc_network
+
+  jobmanager:
+    image: flink:1.17.2-scala_2.12-java11
+    container_name: cdc_jobmanager
+    ports:
+      - "8080:8081"
+    command: jobmanager
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      CLICKHOUSE_HOST: "clickhouse"
+      CLICKHOUSE_HTTP_PORT: "8123"
+      CLICKHOUSE_NATIVE_PORT: "9000"
+      CLICKHOUSE_JDBC_URL: "jdbc:clickhouse://clickhouse:8123"
+      CLICKHOUSE_DATABASE: "analytics"
+      CLICKHOUSE_TABLE: "enriched_events"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: ""
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        parallelism.default: ${FLINK_PARALLELISM:-2}
+        taskmanager.memory.process.size: ${FLINK_TASKMANAGER_MEMORY:-2048m}
+        taskmanager.memory.flink.size: 1024m
+        taskmanager.numberOfTaskSlots: 16
+        execution.checkpointing.interval: ${FLINK_CHECKPOINT_INTERVAL:-30s}
+        execution.checkpointing.mode: EXACTLY_ONCE
+        state.backend: filesystem
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        restart-strategy: exponential-delay
+        restart-strategy.exponential-delay.initial-backoff: 1s
+        restart-strategy.exponential-delay.max-backoff: 10min
+        restart-strategy.exponential-delay.backoff-multiplier: 1.1
+        restart-strategy.exponential-delay.reset-backoff-threshold: 5min
+    volumes:
+      - flink_data:/tmp/flink-checkpoints
+      - ./tmp/flink-checkpoints:/tmp/flink-checkpoints
+    networks:
+      - cdc_network
+
+  taskmanager:
+    image: flink:1.17.2-scala_2.12-java11
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: "kafka:29092"
+      SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      CLICKHOUSE_HOST: "clickhouse"
+      CLICKHOUSE_HTTP_PORT: "8123"
+      CLICKHOUSE_NATIVE_PORT: "9000"
+      CLICKHOUSE_JDBC_URL: "jdbc:clickhouse://clickhouse:8123"
+      CLICKHOUSE_DATABASE: "analytics"
+      CLICKHOUSE_TABLE: "enriched_events"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: ""
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 16
+    volumes:
+      - flink_data:/tmp/flink-checkpoints
+      - ./tmp/flink-checkpoints:/tmp/flink-checkpoints
+    networks:
+      - cdc_network
+    deploy:
+      replicas: 1
+
+  data-generator:
+    build:
+      context: ./data-generator
+      dockerfile: Dockerfile
+    container_name: cdc_data_generator
+    depends_on:
+      - postgres
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-engagement_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      GENERATION_RATE: ${GENERATION_RATE:-10000}
+      BURST_MODE: ${BURST_MODE:-false}
+      BURST_COUNT: ${BURST_COUNT:-100000}
+    networks:
+      - cdc_network
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    container_name: cdc_clickhouse
+    hostname: clickhouse
+    ports:
+      - "8123:8123"  
+      - "9000:9000"  
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./sql/clickhouse-init.sql:/docker-entrypoint-initdb.d/clickhouse-init.sql
+      - ./sql/clickhouse-init.sql:/sql/clickhouse-init.sql
+    networks:
+      - cdc_network
+    restart: unless-stopped
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: cdc_kafka_ui
+    depends_on:
+      - kafka
+      - schema-registry
+    ports:
+      - "8082:8080"
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      KAFKA_CLUSTERS_0_NAME: cdc-kafka-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_READONLY: false
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium-connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://connect:8083
+    volumes:
+      - ./kafka-ui-config.yml:/etc/kafkaui/dynamic_config.yaml
+    networks:
+      - cdc_network
+
+volumes:
+  postgres_data:
+  kafka_data:
+  redis_data:
+  flink_data:
+  superset_data:
+  clickhouse_data:
+
+networks:
+  cdc_network:
+    driver: bridge

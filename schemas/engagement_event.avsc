@@ -1,0 +1,57 @@
+{
+  "type": "record",
+  "name": "EngagementEvent",
+  "namespace": "com.cdc.events",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": ["null", "long", "string"],
+      "doc": "Unique identifier for the engagement event"
+    },
+    {
+      "name": "content_id",
+      "type": ["null", "string"],
+      "doc": "UUID of the content being engaged with"
+    },
+    {
+      "name": "user_id",
+      "type": ["null", "string"],
+      "doc": "UUID of the user performing the engagement"
+    },
+    {
+      "name": "event_type",
+      "type": ["null", "string"],
+      "doc": "Type of engagement event: play, pause, finish, click"
+    },
+    {
+      "name": "event_ts",
+      "type": ["null", "string"],
+      "doc": "Timestamp when the event occurred (ISO 8601 format)"
+    },
+    {
+      "name": "duration_ms",
+      "type": ["null", "long"],
+      "doc": "Duration of the engagement in milliseconds"
+    },
+    {
+      "name": "device",
+      "type": ["null", "string"],
+      "doc": "Device/platform where the event occurred"
+    },
+    {
+      "name": "engagement_score",
+      "type": ["null", "double"],
+      "doc": "Calculated engagement score based on event type and duration"
+    },
+    {
+      "name": "raw_payload",
+      "type": ["null", "string"],
+      "doc": "Original JSON payload from the client"
+    },
+    {
+      "name": "processed_ts",
+      "type": ["null", "string"],
+      "doc": "Timestamp when the event was processed by the pipeline"
+    }
+  ]
+} 
